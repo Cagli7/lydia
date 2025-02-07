@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Side-by-Side Investment Outcome Simulator</title>
+  <!-- Include Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* Global reset and styling */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f4f4f4, #ffffff);
+      color: #333;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+    /* Left panel: Calculation form and summary */
+    .calc-panel {
+      flex: 1 1 300px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    /* Right panel: Chart and final value display */
+    .chart-panel {
+      flex: 1 1 300px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1, h2 {
+      color: #2e7d32;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    p {
+      margin-bottom: 15px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #2e7d32;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #276928;
+    }
+    .summary {
+      font-size: 1.1rem;
+      margin-top: 10px;
+      color: #2e7d32;
+      text-align: center;
+    }
+    #finalValueDisplay {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: #2e7d32;
+      text-align: center;
+    }
+    /* Chart container */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 300px !important;
+      border-radius: 6px;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: #777;
+      margin-top: 10px;
+      text-align: center;
+      line-height: 1.4;
+    }
+    /* Responsive: stack panels on small screens */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Panel: Calculation Form -->
+    <div class="calc-panel">
+      <h2>Investment Outcome Simulator</h2>
+      <h1>Choose Your Asset</h1>
+      <form id="simForm">
+        <label for="assetType">Asset</label>
+        <select id="assetType">
+          <option value="bitcoin">Bitcoin</option>
+          <option value="tesla">Tesla</option>
+          <option value="apple">Apple</option>
+          <option value="microsoft">Microsoft</option>
+          <option value="aselsan">ASELSAN</option>
+          <option value="turkcell">Turkcell</option>
+        </select>
+        <label for="monthlyAmount">Monthly Investment ($)</label>
+        <input type="number" id="monthlyAmount" value="100" min="1" step="1" />
+        <label for="yearsInvested">Years Invested</label>
+        <input type="number" id="yearsInvested" value="5" min="1" step="1" />
+        <button type="button" id="calculateBtn">Calculate Outcome</button>
+      </form>
+      <div class="summary" id="resultSummary"></div>
+      <p class="note">
+        Data assumptions:
+        <br>• Bitcoin: $9,000 → $98,680.
+        <br>• Tesla: $130 → $378.17.
+        <br>• Apple: $100 → $232.47.
+        <br>• Microsoft: $250 → $413.29.
+        <br>• ASELSAN: $10 → $60.
+        <br>• Turkcell: $5 → $30.
+      </p>
+    </div>
+    <!-- Right Panel: Chart -->
+    <div class="chart-panel">
+      <div id="finalValueDisplay"></div>
+      <div class="chart-container">
+        <canvas id="outcomeChart"></canvas>
+      </div>
+      <p class="note">
+        The chart displays your estimated portfolio value (using current prices) at the end of each year. An initial data point at Year 0 is added for clarity.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Data assumptions (research-based and hypothetical)
+    const assetData = {
+      bitcoin: { initialPrice: 9000, currentPrice: 98680 },
+      tesla: { initialPrice: 130, currentPrice: 378.17 },
+      apple: { initialPrice: 100, currentPrice: 232.47 },
+      microsoft: { initialPrice: 250, currentPrice: 413.29 },
+      aselsan: { initialPrice: 10, currentPrice: 60 },
+      turkcell: { initialPrice: 5, currentPrice: 30 }
+    };
+
+    // Simulate monthly investments with exponential growth from initialPrice to currentPrice.
+    // An initial point (Year 0, value 0) is added for clarity.
+    function simulateInvestment(asset, monthlyAmount, years) {
+      const totalMonths = years * 12;
+      const { initialPrice, currentPrice } = assetData[asset];
+      const monthlyGrowth = Math.pow(currentPrice / initialPrice, 1 / (totalMonths - 1));
+      
+      let totalUnits = 0;
+      let yearData = [];
+      yearData.push({ year: 0, value: 0 });
+      
+      for (let month = 0; month < totalMonths; month++) {
+        const purchasePrice = initialPrice * Math.pow(monthlyGrowth, month);
+        const unitsBought = monthlyAmount / purchasePrice;
+        totalUnits += unitsBought;
+        if ((month + 1) % 12 === 0) {
+          const currentValue = totalUnits * currentPrice;
+          yearData.push({ year: Math.floor((month + 1) / 12), value: currentValue });
+        }
+      }
+      const finalValue = totalUnits * currentPrice;
+      return { totalUnits, finalValue, yearData };
+    }
+
+    // Set up the Chart.js line chart.
+    const ctx = document.getElementById('outcomeChart').getContext('2d');
+    let outcomeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Estimated Value ($)',
+          data: [],
+          borderColor: '#2e7d32',
+          backgroundColor: 'rgba(46,125,50,0.2)',
+          fill: true,
+          tension: 0.25,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Years Invested' }
+          },
+          y: {
+            title: { display: true, text: 'Portfolio Value ($)' },
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return '$' + value;
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // Update simulation: recalculate and update the summary and chart.
+    function updateSimulation() {
+      const asset = document.getElementById('assetType').value;
+      const monthlyAmount = parseFloat(document.getElementById('monthlyAmount').value) || 0;
+      const years = parseInt(document.getElementById('yearsInvested').value) || 0;
+      
+      const result = simulateInvestment(asset, monthlyAmount, years);
+      const finalValue = result.finalValue;
+      const totalUnits = result.totalUnits;
+      
+      const summaryText = `Investing \$${monthlyAmount.toFixed(2)} per month for ${years} year(s) in ${asset.charAt(0).toUpperCase() + asset.slice(1)} would have accumulated approximately ${totalUnits.toFixed(3)} unit(s).`;
+      document.getElementById('resultSummary').innerHTML = summaryText;
+      
+      // Update final value display in the right panel.
+      document.getElementById('finalValueDisplay').innerHTML =
+        `Final Estimated Value: \$${finalValue.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+      
+      // Update chart data.
+      const labels = result.yearData.map(d => `Year ${d.year}`);
+      const data = result.yearData.map(d => d.value);
+      outcomeChart.data.labels = labels;
+      outcomeChart.data.datasets[0].data = data;
+      outcomeChart.update();
+    }
+
+    // Event listeners for live updating.
+    document.getElementById('simForm').addEventListener('input', updateSimulation);
+    document.getElementById('calculateBtn').addEventListener('click', updateSimulation);
+    updateSimulation();
+  </script>
+</body>
+</html>
