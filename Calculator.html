@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compound Interest Calculator</title>
+  <!-- Include Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background-color: #f7f7f7; /* light, neutral tone */
+      color: #333;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    /* Left Panel (Inputs) */
+    .left-panel {
+      flex: 1 1 350px;
+      padding: 2rem;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    .left-panel h2 {
+      color: #2e7d32; /* green accent */
+      margin-bottom: 0.5rem;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .left-panel h1 {
+      margin-top: 0;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .left-panel p {
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-weight: 500;
+    }
+    .form-group input[type="number"],
+    .form-group input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .radio-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .radio-group label {
+      margin: 0;
+      font-weight: normal;
+    }
+    button {
+      background-color: #2e7d32;
+      color: #fff;
+      border: none;
+      padding: 0.8rem 1.2rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    button:hover {
+      background-color: #276928;
+    }
+    /* Right Panel (Chart) */
+    .right-panel {
+      flex: 1 1 500px;
+      padding: 2rem;
+    }
+    .chart-container {
+      background-color: #2e7d32;
+      color: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .chart-header h3 {
+      margin: 0 0 1rem;
+      font-size: 1.5rem;
+    }
+    canvas {
+      background-color: #fff;
+      border-radius: 4px;
+    }
+    .chart-note {
+      font-size: 0.8rem;
+      margin-top: 0.5rem;
+      text-align: center;
+      color: #ddd;
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 800px) {
+      .container {
+        flex-direction: column;
+      }
+      .right-panel {
+        margin-top: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Left Side: Inputs and Information -->
+    <div class="left-panel">
+      <h2>Calculate your estimate</h2>
+      <h1>See your potential.</h1>
+      <p>
+        Compound interest helps your money grow over time by earning returns on both your initial deposit and on the interest previously earned. Experiment with different inputs to see how your investment could flourish!
+      </p>
+      <form id="calculatorForm">
+        <div class="form-group">
+          <label for="initialDeposit">Initial Deposit</label>
+          <input type="number" id="initialDeposit" value="100" min="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="contributions">Contributions</label>
+          <input type="number" id="contributions" value="20" min="0" step="1" />
+        </div>
+        <div class="form-group">
+          <label>Contribution Frequency</label>
+          <div class="radio-group">
+            <div>
+              <input type="radio" id="annual" name="frequency" value="annual" checked />
+              <label for="annual">Annual</label>
+            </div>
+            <div>
+              <input type="radio" id="monthly" name="frequency" value="monthly" />
+              <label for="monthly">Monthly</label>
+            </div>
+            <div>
+              <input type="radio" id="weekly" name="frequency" value="weekly" />
+              <label for="weekly">Weekly</label>
+            </div>
+            <div>
+              <input type="radio" id="daily" name="frequency" value="daily" />
+              <label for="daily">Daily</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="years">Years to Grow</label>
+          <input type="number" id="years" value="20" min="1" step="1" />
+        </div>
+        <div class="form-group">
+          <label for="annualReturn">Average Annual Return (%)</label>
+          <input type="number" id="annualReturn" value="8" min="0" step="0.1" />
+        </div>
+        <button type="button" id="calculateBtn">Calculate my estimate</button>
+      </form>
+    </div>
+    <!-- Right Side: Chart -->
+    <div class="right-panel">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3>
+            Potential Future Balance: 
+            <span id="futureBalance">$51,805</span>
+          </h3>
+        </div>
+        <canvas id="compoundChart" height="300"></canvas>
+        <p class="chart-note">
+          Note: This chart is only an estimate and real returns may vary.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* --- JavaScript for Real-Time Calculation & Chart Updates --- */
+
+    // Helper: Get number of compounding periods per year
+    function getCompoundingPeriods(frequency) {
+      switch(frequency) {
+        case 'annual': return 1;
+        case 'monthly': return 12;
+        case 'weekly': return 52;
+        case 'daily': return 365;
+        default: return 1;
+      }
+    }
+
+    // Calculate Future Value using compound interest with periodic contributions:
+    // FV = P * (1 + r/n)^(n*t) + PMT * [((1 + r/n)^(n*t) - 1) / (r/n)]
+    function calculateFutureValue(P, PMT, r, t, n) {
+      const compoundFactor = Math.pow(1 + r / n, n * t);
+      return P * compoundFactor + PMT * ((compoundFactor - 1) / (r / n));
+    }
+
+    // Set up the chart (using Chart.js)
+    const ctx = document.getElementById('compoundChart').getContext('2d');
+    let compoundChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: [], // Will be set dynamically (e.g., years 2025–2045)
+        datasets: [
+          {
+            label: 'Principal Contributions',
+            backgroundColor: '#a8d5ba', // lighter green
+            data: [],
+            stack: 'stack1'
+          },
+          {
+            label: 'Returns',
+            backgroundColor: '#2e7d32', // darker green
+            data: [],
+            stack: 'stack1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: { display: true, text: 'Investment Growth Timeline' }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            title: { display: true, text: 'Year' }
+          },
+          y: {
+            stacked: true,
+            title: { display: true, text: 'Balance ($)' },
+            beginAtZero: true,
+            suggestedMax: 60000
+          }
+        }
+      }
+    });
+
+    // Update the chart and summary in real time
+    function updateCalculator() {
+      // Retrieve input values
+      const P = parseFloat(document.getElementById('initialDeposit').value) || 0;
+      const contributions = parseFloat(document.getElementById('contributions').value) || 0;
+      const years = parseInt(document.getElementById('years').value) || 0;
+      const annualReturnPercent = parseFloat(document.getElementById('annualReturn').value) || 0;
+      const r = annualReturnPercent / 100;
+      const frequency = document.querySelector('input[name="frequency"]:checked').value;
+      const n = getCompoundingPeriods(frequency);
+
+      // Prepare arrays for year-by-year data
+      const currentYear = new Date().getFullYear();
+      const labels = [];
+      const principalData = [];
+      const returnsData = [];
+
+      // We build the timeline (e.g., currentYear+1 through currentYear+years)
+      for (let i = 1; i <= years; i++) {
+        const t = i;
+        // Compound factor for year 't'
+        const compoundFactor = Math.pow(1 + r / n, n * t);
+        const totalBalance = P * compoundFactor + contributions * ((compoundFactor - 1) / (r / n));
+        // The total principal contributed is simply the initial deposit plus the sum of contributions.
+        const totalPrincipal = P + contributions * t;
+        // Returns are the difference
+        const totalReturns = totalBalance - totalPrincipal;
+
+        labels.push(currentYear + i);
+        principalData.push(totalPrincipal);
+        returnsData.push(totalReturns);
+      }
+
+      // Update Chart.js data
+      compoundChart.data.labels = labels;
+      compoundChart.data.datasets[0].data = principalData;
+      compoundChart.data.datasets[1].data = returnsData;
+      compoundChart.update();
+
+      // Update the summary label on the right panel
+      const finalFutureValue = calculateFutureValue(P, contributions, r, years, n);
+      document.getElementById('futureBalance').textContent =
+        '$' + Math.round(finalFutureValue).toLocaleString();
+    }
+
+    // Listen for changes on the form inputs to update in real time.
+    document.getElementById('calculatorForm').addEventListener('input', updateCalculator);
+    document.getElementById('calculateBtn').addEventListener('click', updateCalculator);
+
+    // Initial call to render default chart
+    updateCalculator();
+  </script>
+</body>
+</html>
